@@ -226,7 +226,7 @@
         @foreach ($brands as $brand)
         <div class="bg-white rounded-lg shadow-md dark:bg-gray-800" wire:key="{{ $brand->id }}">
           <a href="/products?selected_brands[0]={{ $brand->id }}">
-            <img src="{{ url('storage', $brand->image) }}" alt="{{ $brand->name }}"
+            <img src="{{ asset('storage/' . $brand->image) }}" alt="{{ $brand->name }}"
               class="object-cover w-full h-64 rounded-t-lg">
           </a>
           <div class="p-5 text-center">
