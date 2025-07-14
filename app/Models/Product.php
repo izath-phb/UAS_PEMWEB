@@ -30,37 +30,23 @@ class Product extends Model
         'meta_keywords',
     ];
 
-    /**
-     * The attributes that should be cast to native types.
-     *
-     * @var array<string, string>
-     */
-    
     protected $casts = [
         'images' => 'array',
+        'is_active' => 'boolean',
+        'is_featured' => 'boolean',
+        'in_stock' => 'boolean',
+        'on_sale' => 'boolean',
     ];
-
-    /**
-     * Get the category that owns the product.
-     */
 
     public function category()
     {
         return $this->belongsTo(Category::class);
     }
 
-    /**
-     * Get the brand that owns the product.
-     */
-
     public function brand()
     {
         return $this->belongsTo(Brand::class);
     }
-
-    /**
-     * Get the Order Items that owns the product.
-     */
 
     public function orderItems()
     {

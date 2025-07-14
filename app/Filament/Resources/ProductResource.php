@@ -23,6 +23,12 @@ use Filament\Tables\Table;
 use Illuminate\Support\Str;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
+use Filament\Tables\Columns\ViewColumn;
+use Filament\Tables\Columns\ToggleColumn;
+use Filament\Tables\Actions\Action;
+use Illuminate\Support\Facades\Http;
+use Filament\Notifications\Notification;
+
 
 class ProductResource extends Resource
 {
@@ -148,72 +154,97 @@ class ProductResource extends Resource
     {
         return $table
             ->columns([
-                Tables\Columns\TextColumn::make('name')
-                    ->searchable(),
+                Tables\Columns\TextColumn::make('name')->searchable(),
+                Tables\Columns\TextColumn::make('category.name')->sortable(),
+                Tables\Columns\TextColumn::make('brand.name')->sortable(),
+                Tables\Columns\TextColumn::make('price')->money('IDR')->sortable(),
 
-                Tables\Columns\TextColumn::make('category.name')
-                    ->sortable(),
-
-                Tables\Columns\TextColumn::make('brand.name')
-                    ->sortable(),
-
-                Tables\Columns\TextColumn::make('price')
-                    ->money('IDR')
-                    ->sortable(),
-
-                Tables\Columns\IconColumn::make('is_active')
-                    ->boolean(),
-
-                Tables\Columns\IconColumn::make('is_featured')
-                    ->boolean(),
-
-                Tables\Columns\IconColumn::make('in_stock')
-                    ->boolean(),
-
-                Tables\Columns\IconColumn::make('on_sale')
-                    ->boolean(),
-
-                Tables\Columns\TextColumn::make('created_at')
-                    ->dateTime()
+                Tables\Columns\ToggleColumn::make('is_active')
+                    ->label('is_active')
+                    ->onColor('success')
+                    ->offColor('danger')
                     ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
+                    ->action(function (Product $record, bool $state) {
+                        $record->is_active = $state;
+                        $record->save();
+                    }),
 
-                Tables\Columns\TextColumn::make('updated_at')
-                    ->dateTime()
-                    ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
+
+                Tables\Columns\IconColumn::make('is_featured')->boolean(),
+                Tables\Columns\IconColumn::make('in_stock')->boolean(),
+                Tables\Columns\IconColumn::make('on_sale')->boolean(),
+
+                Tables\Columns\TextColumn::make('created_at')->dateTime()->sortable()->toggleable(isToggledHiddenByDefault: true),
+                Tables\Columns\TextColumn::make('updated_at')->dateTime()->sortable()->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
-                SelectFilter::make('category')
-                    ->relationship('category', 'name'),
-
-                SelectFilter::make('brand')
-                    ->relationship('brand', 'name'),
-
-                Filter::make('is_featured')
-                    ->toggle(),
-
-                Filter::make('in_stock')
-                    ->toggle(),
-
-                Filter::make('on_sale')
-                    ->toggle(),
-
-                Filter::make('is_active')
-                    ->toggle()
+                SelectFilter::make('category')->relationship('category', 'name'),
+                SelectFilter::make('brand')->relationship('brand', 'name'),
+                Filter::make('is_featured')->toggle(),
+                Filter::make('in_stock')->toggle(),
+                Filter::make('on_sale')->toggle(),
+                Filter::make('is_active')->toggle(),
             ])
             ->actions([
                 Tables\Actions\ActionGroup::make([
                     Tables\Actions\ViewAction::make(),
                     Tables\Actions\EditAction::make(),
                     Tables\Actions\DeleteAction::make()->requiresConfirmation(),
-                ])
+
+                    Action::make('sync')
+                        ->label('Sync to Hub')
+                        ->icon('heroicon-s-cloud-arrow-up')
+                        ->requiresConfirmation()
+                        ->color('primary')
+                        ->action(function ($record) {
+                            if (!$record->category || !$record->category->hub_category_id) {
+                                Notification::make()
+                                    ->title('Sync Failed')
+                                    ->body('Product category belum tersinkron ke hub.')
+                                    ->danger()
+                                    ->send();
+                                return;
+                            }
+
+                            $response = Http::post('https://api.phb-umkm.my.id/api/product/sync', [
+                                'client_id' => env('CLIENT_ID'),
+                                'client_secret' => env('CLIENT_SECRET'),
+                                'seller_product_id' => (string) $record->id,
+                                'name' => $record->name,
+                                'description' => $record->description,
+                                'price' => $record->price,
+                                'stock' => $record->stock ?? 1,
+                                'sku' => $record->sku,
+                                'image_url' => $record->image_url ?? ($record->images[0] ?? null),
+                                'weight' => $record->weight ?? 1,
+                                'is_active' => $record->is_active ? true : false,
+                                'category_id' => (string) $record->category->hub_category_id,
+                            ]);
+
+                            if ($response->successful() && isset($response['product_id'])) {
+                                $record->hub_product_id = $response['product_id'];
+                                $record->save();
+
+                                Notification::make()
+                                    ->title('Product synced successfully')
+                                    ->success()
+                                    ->send();
+                            } else {
+                                Notification::make()
+                                    ->title('Failed to sync product')
+                                    ->body('Periksa API atau data produk.')
+                                    ->danger()
+                                    ->send();
+                            }
+                        }),
+                ]),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
                     Tables\Actions\DeleteBulkAction::make(),
                 ]),
-            ])->defaultSort('created_at', 'desc');
+            ])
+            ->defaultSort('created_at', 'desc');
     }
 
     public static function getRelations(): array

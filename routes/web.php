@@ -15,6 +15,8 @@ use App\Livewire\ProductDetailPage;
 use App\Livewire\ProductsPage;
 use App\Livewire\SuccessPage;
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\ProductController;
+use App\Http\Controllers\ProductCategoryController;
 
 
 Route::get('/', HomePage::class)->name('index');
@@ -32,6 +34,7 @@ Route::get('/checkout', CheckoutPage::class)->name('checkout');
 Route::get('/my-orders', MyOrdersPage::class)->name('my-orders');
 
 Route::get('/my-orders/{order}', MyOrderDetailPage::class)->name('my-order-details');
+
 
 
 // Auth routes
