@@ -200,7 +200,7 @@ class ProductResource extends Resource
                             if (!$record->category || !$record->category->hub_category_id) {
                                 Notification::make()
                                     ->title('Sync Failed')
-                                    ->body('Product category belum tersinkron ke hub.')
+                                    ->body('Product belum tersinkron ke hub.')
                                     ->danger()
                                     ->send();
                                 return;
